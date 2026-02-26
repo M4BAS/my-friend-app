@@ -264,8 +264,8 @@ const FloatingHeart = ({ style }) => (
 );
 
 // ⚠️ REPLACE THESE WITH YOUR OWN SUPABASE VALUES
-const SUPABASE_URL = "YOUR_SUPABASE_URL";
-const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+const SUPABASE_URL = "https://mxbdtciwxbkhqrlrvqqp.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14YmR0Y2l3eGJraHFybHJ2cXFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxMjcyNTksImV4cCI6MjA4NzcwMzI1OX0.Kqn54xAXnBVIVO1XGOM61MKuNOghjnm8TLWXk8FOnlA";
 
 const supabase = {
   async insert(data) {
@@ -714,3 +714,4 @@ export default function App() {
     </>
   );
 }
+
