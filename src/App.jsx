@@ -265,7 +265,7 @@ const FloatingHeart = ({ style }) => (
 
 // ⚠️ REPLACE THESE WITH YOUR OWN SUPABASE VALUES
 const SUPABASE_URL = "https://mxbdtciwxbkhqrlrvqqp.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14YmR0Y2l3eGJraHFybHJ2cXFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxMjcyNTksImV4cCI6MjA4NzcwMzI1OX0.Kqn54xAXnBVIVO1XGOM61MKuNOghjnm8TLWXk8FOnlA";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14YmR0Y2l3eGJraHFybHJ2cXFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxMjcyNTksImV4cCI6MjA4NzcwMzI1OX0.Kqn54xAXnBVIVO1XGOM61MKuNOghjnm8TLWXk8FOnlA";";
 
 const supabase = {
   async insert(data) {
@@ -374,9 +374,18 @@ export default function App() {
   const positiveCount = answers.filter(a => a.positive).length;
 
   const handleAnswer = (opt) => {
-    if (showResponse || transitioning) return;
+    if (transitioning) return;
     setSelectedOption(opt);
-    setAnswers(prev => [...prev, { id: q.id, ...opt }]);
+    // update or add answer
+    setAnswers(prev => {
+      const existing = prev.findIndex(a => a.id === q.id);
+      if (existing >= 0) {
+        const updated = [...prev];
+        updated[existing] = { id: q.id, ...opt };
+        return updated;
+      }
+      return [...prev, { id: q.id, ...opt }];
+    });
     setShowResponse(true);
   };
 
@@ -393,6 +402,24 @@ export default function App() {
       }
       setTransitioning(false);
     }, 400);
+  };
+
+  const handleBack = () => {
+    if (current === 0 || transitioning) return;
+    setTransitioning(true);
+    setTimeout(() => {
+      setCurrent(c => c - 1);
+      // restore previously selected option for that question
+      const prev = answers.find(a => a.id === questions[current - 1].id);
+      setSelectedOption(prev || null);
+      setShowResponse(!!prev);
+      setTransitioning(false);
+    }, 300);
+  };
+
+  const handleChangeAnswer = () => {
+    setShowResponse(false);
+    setSelectedOption(null);
   };
 
   // Save to Supabase when done
@@ -606,7 +633,12 @@ export default function App() {
           <div className="screen" style={{ justifyContent: "flex-start", paddingTop: 50 }}>
             <div className="progress-wrap">
               <div className="progress-meta">
-                <span>Question {current + 1} of {questions.length}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {current > 0 && (
+                    <button onClick={handleBack} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 16, padding: 0, lineHeight: 1 }}>← back</button>
+                  )}
+                  Question {current + 1} of {questions.length}
+                </span>
                 <span>{Math.round(progress)}% done</span>
               </div>
               <div className="progress-track">
@@ -630,7 +662,7 @@ export default function App() {
                         key={i}
                         className={cls}
                         onClick={() => handleAnswer(opt)}
-                        disabled={showResponse}
+                        disabled={showResponse && selectedOption?.label !== opt.label}
                       >
                         {opt.label}
                       </button>
@@ -641,9 +673,14 @@ export default function App() {
                 {showResponse && selectedOption && (
                   <div className="response-box">
                     <p>{q.response(name, selectedOption)}</p>
-                    <button className="next-btn" onClick={handleNext}>
-                      {current + 1 < questions.length ? "Next question →" : "See my results 🎉"}
-                    </button>
+                    <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                      <button className="next-btn" style={{ flex: 1 }} onClick={handleChangeAnswer}>
+                        ✏️ Change answer
+                      </button>
+                      <button className="next-btn" style={{ flex: 2, borderColor: "rgba(255,107,157,0.6)", color: "#FF6B9D" }} onClick={handleNext}>
+                        {current + 1 < questions.length ? "Next →" : "See results 🎉"}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -686,9 +723,18 @@ export default function App() {
                       <div className="result-quality">{qItem.quality}</div>
                       <div className="result-answer">{a.label}</div>
                     </div>
-                    <div className={`result-badge ${a.positive ? "badge-pos" : "badge-neg"}`}>
-                      {a.positive ? "✓" : "○"}
-                    </div>
+                    <button
+                      onClick={() => {
+                        const idx = questions.findIndex(q => q.id === a.id);
+                        setCurrent(idx);
+                        setSelectedOption(a);
+                        setShowResponse(true);
+                        setDone(false);
+                      }}
+                      style={{ background: "none", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: "rgba(255,255,255,0.4)", fontSize: 11, padding: "4px 10px", cursor: "pointer", flexShrink: 0, fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      edit
+                    </button>
                   </div>
                 );
               })}
@@ -714,4 +760,3 @@ export default function App() {
     </>
   );
 }
-
