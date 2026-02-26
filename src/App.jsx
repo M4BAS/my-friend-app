@@ -263,27 +263,48 @@ const FloatingHeart = ({ style }) => (
   </div>
 );
 
+// ⚠️ REPLACE THESE WITH YOUR OWN SUPABASE VALUES
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+
+const supabase = {
+  async insert(data) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/responses`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+        "Prefer": "return=minimal",
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(await res.text());
+  },
+  async fetchAll() {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/responses?order=created_at.desc`, {
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+};
+
 const ADMIN_CODE = "showme";
 
 function AdminView({ onExit }) {
   const [responses, setResponses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    try {
-      const all = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith("response:")) {
-          try {
-            const val = localStorage.getItem(key);
-            if (val) all.push(JSON.parse(val));
-          } catch {}
-        }
-      }
-      setResponses(all.sort((a, b) => b.timestamp - a.timestamp));
-    } catch { setResponses([]); }
-    setLoading(false);
+    supabase.fetchAll()
+      .then(data => setResponses(data || []))
+      .catch(e => setError("Could not load responses. Check your Supabase config."))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -291,21 +312,21 @@ function AdminView({ onExit }) {
       <div className="tag">Admin View 🔐</div>
       <h1 className="big" style={{ marginBottom: 8 }}>Her <span>Responses</span></h1>
       <p className="sub" style={{ marginBottom: 24 }}>
-        {loading ? "Loading..." : responses.length === 0 ? "No responses yet — share the link first! 💌" : `${responses.length} response${responses.length > 1 ? "s" : ""} received`}
+        {loading ? "Loading..." : error ? error : responses.length === 0 ? "No responses yet — share the link first! 💌" : `${responses.length} response${responses.length > 1 ? "s" : ""} received`}
       </p>
 
-      {!loading && responses.map((r, i) => (
+      {!loading && !error && responses.map((r, i) => (
         <div key={i} className="admin-card" style={{ animationDelay: `${i * 0.08}s` }}>
           <div className="admin-card-header">
             <span className="admin-name">{r.name}</span>
-            <span className="admin-score admin-score-badge">{r.positiveCount}/{r.totalQuestions} positive</span>
-            <span className="admin-time">{new Date(r.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+            <span className="admin-score admin-score-badge">{r.positive_count}/{r.total_questions} positive</span>
+            <span className="admin-time">{new Date(r.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
           </div>
           <div className="admin-score-bar">
-            <div className="admin-score-fill" style={{ width: `${(r.positiveCount / r.totalQuestions) * 100}%` }} />
+            <div className="admin-score-fill" style={{ width: `${(r.positive_count / r.total_questions) * 100}%` }} />
           </div>
           <div className="admin-answers">
-            {r.answers.map((a, j) => {
+            {(r.answers || []).map((a, j) => {
               const qItem = questions.find(q => q.id === a.id);
               return (
                 <div key={j} className={`admin-answer-row ${a.positive ? "ans-pos" : "ans-neg"}`}>
@@ -374,19 +395,15 @@ export default function App() {
     }, 400);
   };
 
-  // Save to localStorage when done
+  // Save to Supabase when done
   useEffect(() => {
     if (!done || answers.length === 0) return;
-    try {
-      const key = `response:${Date.now()}`;
-      localStorage.setItem(key, JSON.stringify({
-        name,
-        answers,
-        positiveCount: answers.filter(a => a.positive).length,
-        totalQuestions: questions.length,
-        timestamp: Date.now(),
-      }));
-    } catch (e) { console.error("Save failed", e); }
+    supabase.insert({
+      name,
+      answers,
+      positive_count: answers.filter(a => a.positive).length,
+      total_questions: questions.length,
+    }).catch(e => console.error("Save failed:", e));
   }, [done]);
 
   const handleSecretSubmit = () => {
